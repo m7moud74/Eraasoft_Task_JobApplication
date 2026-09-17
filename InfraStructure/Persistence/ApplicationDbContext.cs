@@ -1,9 +1,11 @@
 using JobApplication.Domain.Entities;
+using JobApplication.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JobApplication.Infrastructure.Persistence;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
     public DbSet<Job> Jobs { get; set; }
     public DbSet<Candidate> Candidates { get; set; }
@@ -22,6 +24,14 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.CancelledAt).IsRequired(false);
+        });
+
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.HasOne(u => u.Candidate)
+                  .WithOne()
+                  .HasForeignKey<ApplicationUser>(u => u.CandidateId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

@@ -35,4 +35,15 @@ public class JobCandidateApplication
         CancelledAt = DateTime.UtcNow;
         StatusUpdatedAt = DateTime.UtcNow;
     }
+
+    public void UpdateStatus(JobApplicationStatus newStatus)
+    {
+        if (JobApplicationStatus == JobApplicationStatus.Cancelled)
+        {
+            throw new DomainException("Cannot update status of a cancelled application.");
+        }
+
+        JobApplicationStatus = newStatus;
+        StatusUpdatedAt = DateTime.UtcNow;
+    }
 }
