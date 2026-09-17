@@ -1,0 +1,49 @@
+@JobaApplication.Api_HostAddress = http://localhost:5102
+
+### 1. Success (204 No Content): Candidate 1 cancels their pending application (Status: Applied)
+DELETE {{JobaApplication.Api_HostAddress}}/api/applications/1
+X-Candidate-Id: 1
+Accept: application/json
+
+###
+
+### 2. Success (204 No Content): Candidate 1 cancels their application under review (Status: UnderReview)
+DELETE {{JobaApplication.Api_HostAddress}}/api/applications/2
+X-Candidate-Id: 1
+Accept: application/json
+
+###
+
+### 3. Forbidden (403 Forbidden): Candidate 2 attempts to cancel Candidate 1's application
+DELETE {{JobaApplication.Api_HostAddress}}/api/applications/1
+X-Candidate-Id: 2
+Accept: application/json
+
+###
+
+### 4. Conflict (409 Conflict): Candidate 2 attempts to cancel application already at Interview stage
+DELETE {{JobaApplication.Api_HostAddress}}/api/applications/3
+X-Candidate-Id: 2
+Accept: application/json
+
+###
+
+### 5. Conflict (409 Conflict): Repeated cancellation (Application 4 is already Cancelled)
+DELETE {{JobaApplication.Api_HostAddress}}/api/applications/4
+X-Candidate-Id: 2
+Accept: application/json
+
+###
+
+### 6. Not Found (404 Not Found): Application ID does not exist
+DELETE {{JobaApplication.Api_HostAddress}}/api/applications/999
+X-Candidate-Id: 1
+Accept: application/json
+
+###
+
+### 7. Unauthorized (401 Unauthorized): Request sent without candidate credentials or header
+DELETE {{JobaApplication.Api_HostAddress}}/api/applications/1
+Accept: application/json
+
+###

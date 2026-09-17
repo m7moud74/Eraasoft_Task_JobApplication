@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Api/JobaApplication.Api.csproj" />
+  <Project Path="Application/Application.csproj" />
+  <Project Path="Domain/Domain.csproj" />
+  <Project Path="InfraStructure/InfraStructure.csproj" />
+</Solution>
