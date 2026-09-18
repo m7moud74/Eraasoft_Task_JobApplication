@@ -47,9 +47,9 @@ public class CandidateService : ICandidateService
             throw new NotFoundException($"Candidate with ID {id} was not found.");
         }
 
-        if (!_currentUserService.IsAdmin && _currentUserService.CandidateId != id)
+        if (!_currentUserService.IsCandidate || _currentUserService.CandidateId != id)
         {
-            throw new ForbiddenAccessException("You can only update your own candidate profile.");
+            throw new ForbiddenAccessException("Only candidates can update their own profile.");
         }
 
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -68,9 +68,9 @@ public class CandidateService : ICandidateService
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        if (!_currentUserService.IsAdmin)
+        if (!_currentUserService.IsAdmin && (!_currentUserService.IsCandidate || _currentUserService.CandidateId != id))
         {
-            throw new ForbiddenAccessException("Only administrators can delete candidate profiles.");
+            throw new ForbiddenAccessException("You are not authorized to delete this candidate profile.");
         }
 
         var candidate = await _candidateRepository.GetByIdAsync(id, cancellationToken);

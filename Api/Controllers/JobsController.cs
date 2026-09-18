@@ -41,7 +41,7 @@ public class JobsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Recruiter,Admin")]
     public async Task<IActionResult> Create([FromBody] CreateJobRequest request, CancellationToken cancellationToken)
     {
         try
@@ -56,7 +56,7 @@ public class JobsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Recruiter,Admin")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateJobRequest request, CancellationToken cancellationToken)
     {
         try
@@ -68,14 +68,37 @@ public class JobsController : ControllerBase
         {
             return NotFound(new { error = ex.Message });
         }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
         catch (BadRequestException ex)
         {
             return BadRequest(new { error = ex.Message });
         }
     }
 
+    [HttpPut("{id:int}/close")]
+    [Authorize(Roles = "Recruiter,Admin")]
+    public async Task<IActionResult> Close(int id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var closedJob = await _jobService.CloseJobAsync(id, cancellationToken);
+            return Ok(closedJob);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+    }
+
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Recruiter,Admin")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         try
@@ -86,6 +109,10 @@ public class JobsController : ControllerBase
         catch (NotFoundException ex)
         {
             return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
         }
         catch (BadRequestException ex)
         {

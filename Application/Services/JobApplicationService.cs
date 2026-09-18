@@ -11,15 +11,18 @@ public class JobApplicationService : IJobApplicationService
     private readonly IJobCandidateApplicationRepository _repository;
     private readonly IJobRepository _jobRepository;
     private readonly ICandidateRepository _candidateRepository;
+    private readonly ICurrentUserService _currentUserService;
 
     public JobApplicationService(
         IJobCandidateApplicationRepository repository,
         IJobRepository jobRepository,
-        ICandidateRepository candidateRepository)
+        ICandidateRepository candidateRepository,
+        ICurrentUserService currentUserService)
     {
         _repository = repository;
         _jobRepository = jobRepository;
         _candidateRepository = candidateRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<JobCandidateApplicationDto> ApplyAsync(int jobId, int candidateId, CancellationToken cancellationToken = default)
@@ -82,7 +85,8 @@ public class JobApplicationService : IJobApplicationService
             throw new NotFoundException($"Job application with ID {applicationId} was not found.");
         }
 
-        if (!isAdmin && application.CandidateId != currentCandidateId)
+        var isJobOwner = application.Job is not null && !string.IsNullOrWhiteSpace(application.Job.CreatedByUserId) && application.Job.CreatedByUserId == _currentUserService.UserId;
+        if (!isAdmin && !isJobOwner && application.CandidateId != currentCandidateId)
         {
             throw new ForbiddenAccessException("You are not authorized to view this job application.");
         }
@@ -104,6 +108,13 @@ public class JobApplicationService : IJobApplicationService
             throw new NotFoundException($"Job with ID {jobId} was not found.");
         }
 
+        if (!_currentUserService.IsAdmin &&
+            !string.IsNullOrWhiteSpace(job.CreatedByUserId) &&
+            job.CreatedByUserId != _currentUserService.UserId)
+        {
+            throw new ForbiddenAccessException("Only the recruiter who opened this job or an administrator can view its applications.");
+        }
+
         var applications = await _repository.GetByJobIdAsync(jobId, cancellationToken);
         return applications.Select(MapToDto).ToList();
     }
@@ -114,6 +125,13 @@ public class JobApplicationService : IJobApplicationService
         if (application is null)
         {
             throw new NotFoundException($"Job application with ID {applicationId} was not found.");
+        }
+
+        if (application.Job is not null &&
+            !string.IsNullOrWhiteSpace(application.Job.CreatedByUserId) &&
+            application.Job.CreatedByUserId != _currentUserService.UserId)
+        {
+            throw new ForbiddenAccessException("Only the recruiter who opened this job can change the status of its applications.");
         }
 
         application.UpdateStatus(status);

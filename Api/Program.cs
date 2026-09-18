@@ -4,6 +4,7 @@ using JobApplication.Application.Interfaces;
 using JobApplication.Infrastructure;
 using JobApplication.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -90,10 +91,11 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// 6. Seed Database Data and Roles
+// 6. Automatically apply pending database migrations
 using (var scope = app.Services.CreateScope())
 {
-    await DbInitializer.SeedAsync(scope.ServiceProvider);
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await context.Database.MigrateAsync();
 }
 
 app.Run();

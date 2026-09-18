@@ -9,11 +9,16 @@ public class JobService : IJobService
 {
     private readonly IJobRepository _jobRepository;
     private readonly IJobCandidateApplicationRepository _applicationRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public JobService(IJobRepository jobRepository, IJobCandidateApplicationRepository applicationRepository)
+    public JobService(
+        IJobRepository jobRepository,
+        IJobCandidateApplicationRepository applicationRepository,
+        ICurrentUserService currentUserService)
     {
         _jobRepository = jobRepository;
         _applicationRepository = applicationRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<IReadOnlyList<JobDto>> GetAllAsync(bool? activeOnly = null, CancellationToken cancellationToken = default)
@@ -50,7 +55,8 @@ public class JobService : IJobService
         {
             Title = request.Title.Trim(),
             Description = request.Description.Trim(),
-            IsActive = request.IsActive
+            IsActive = request.IsActive,
+            CreatedByUserId = _currentUserService.UserId
         };
 
         await _jobRepository.InsertAsync(job, cancellationToken);
@@ -65,6 +71,11 @@ public class JobService : IJobService
         if (job is null)
         {
             throw new NotFoundException($"Job with ID {id} was not found.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(job.CreatedByUserId) && job.CreatedByUserId != _currentUserService.UserId)
+        {
+            throw new ForbiddenAccessException("Only the person who opened this job can update or close it.");
         }
 
         if (string.IsNullOrWhiteSpace(request.Title))
@@ -82,12 +93,38 @@ public class JobService : IJobService
         return MapToDto(job);
     }
 
+    public async Task<JobDto> CloseJobAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var job = await _jobRepository.GetByIdAsync(id, cancellationToken);
+        if (job is null)
+        {
+            throw new NotFoundException($"Job with ID {id} was not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(job.CreatedByUserId) || job.CreatedByUserId != _currentUserService.UserId)
+        {
+            throw new ForbiddenAccessException("Only the person who opened this job can close it.");
+        }
+
+        job.IsActive = false;
+
+        _jobRepository.Update(job);
+        await _jobRepository.SaveChangesAsync(cancellationToken);
+
+        return MapToDto(job);
+    }
+
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var job = await _jobRepository.GetByIdAsync(id, cancellationToken);
         if (job is null)
         {
             throw new NotFoundException($"Job with ID {id} was not found.");
+        }
+
+        if (!_currentUserService.IsAdmin && job.CreatedByUserId != _currentUserService.UserId)
+        {
+            throw new ForbiddenAccessException("You are not authorized to delete this job.");
         }
 
         var hasApplications = await _applicationRepository.AnyByJobIdAsync(id, cancellationToken);
@@ -107,7 +144,8 @@ public class JobService : IJobService
             Id = job.Id,
             Title = job.Title,
             Description = job.Description,
-            IsActive = job.IsActive
+            IsActive = job.IsActive,
+            CreatedByUserId = job.CreatedByUserId
         };
     }
 }

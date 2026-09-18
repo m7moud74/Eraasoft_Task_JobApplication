@@ -40,15 +40,15 @@ The solution is divided into 4 decoupled layers following the Clean Architecture
 - **Persistence**: Entity Framework Core 10 with SQL Server.
 - **Identity**: `ApplicationUser : IdentityUser` linked 1-to-1 with the `Candidate` domain entity.
 - **Authentication**: `JwtTokenService` generating secure JWT bearer tokens with standard claims (`sub`, `email`, `role`, `candidate_id`).
-- **Repositories**: Generic and specialized repositories with eager loading (`Include`).
-- **Data Seeding**: `DbInitializer` seeding roles, admin, candidate accounts, jobs, and applications on first startup.
+- **Repositories**: Generic and specialized repositories.
+- **Data Seeding**: EF Core `DataSeeder` (`HasData`) seeding roles, users, jobs, candidates, and applications directly through migrations.
 
 ### 4. API Layer
 - **Controllers**:
-  - `AuthController`: User registration and login.
-  - `JobsController`: Public browsing and Admin job management.
-  - `CandidatesController`: Profile management for candidates and admin.
-  - `ApplicationsController`: Job application submission, tracking, and cancellation.
+  - `AuthController`: User registration (Candidate / Recruiter) and login.
+  - `JobsController`: Public browsing, Recruiter/Admin job creation, creator-only closing and updating.
+  - `CandidatesController`: Candidate self-service profile update and Candidate/Admin deletion.
+  - `ApplicationsController`: Job application submission, job-creator status management, and cancellation.
 - **Current User Resolution**: `CurrentUserService` accessing authenticated claims securely via `IHttpContextAccessor`.
 - **Swagger / OpenAPI**: Interactive API documentation configured with Bearer Token authentication.
 
@@ -56,31 +56,36 @@ The solution is divided into 4 decoupled layers following the Clean Architecture
 
 ## 🔒 Security & Role-Based Authorization
 
-The application supports two primary roles:
+The application supports three primary roles:
 
 1. **Admin**:
-   - Create, update, and delete jobs.
+   - Create jobs and delete jobs.
    - View all candidates and delete candidate profiles.
-   - View all applications submitted for any specific job.
-   - Update application review statuses (`UnderReview`, `InterView`, `Accepted`, `Rejected`).
+   - View all applications submitted for jobs.
+   - *Note*: Cannot update candidate profiles (only candidates themselves can update their profile).
+   - *Note*: Cannot close a job unless they opened/created it.
 
-2. **Candidate**:
-   - Apply to active jobs (the `candidateId` is automatically extracted from the authenticated JWT token to prevent impersonation).
+2. **Recruiter**:
+   - Create new jobs (recorded with `CreatedByUserId`).
+   - Update and close jobs they created (`PUT /api/jobs/{id}/close`).
+   - View applications submitted for their jobs (`GET /api/applications/job/{jobId}`).
+   - Update application review statuses (`PUT /api/applications/{id}/status`) for their jobs.
+
+3. **Candidate**:
+   - Apply to active jobs (`candidateId` resolved from authenticated JWT token).
    - View their own submitted applications (`/api/applications/my`).
    - Cancel their own pending applications (`Applied` or `UnderReview`).
-   - View and update their own candidate profile.
-
-3. **Public**:
-   - Browse all active jobs and view job details.
+   - View and update their own candidate profile (`PUT /api/candidates/{id}`).
+   - Delete their own candidate profile (`DELETE /api/candidates/{id}`).
 
 ---
 
-## 📌 API Endpoints Reference
+## 📡 API Endpoints Reference
 
 ### 🔐 Authentication (`/api/auth`)
 | Method | Route | Authorization | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | Public | Register a new candidate and obtain a JWT |
+| `POST` | `/api/auth/register` | Public | Register a new candidate or recruiter (`role: "Candidate"` or `"Recruiter"`) |
 | `POST` | `/api/auth/login` | Public | Authenticate user and obtain a JWT |
 
 ### 💼 Jobs (`/api/jobs`)
@@ -88,37 +93,39 @@ The application supports two primary roles:
 |---|---|---|---|
 | `GET` | `/api/jobs` | Public | Get all jobs (supports query `?activeOnly=true`) |
 | `GET` | `/api/jobs/{id}` | Public | Get job by ID |
-| `POST` | `/api/jobs` | `Admin` | Create a new job |
-| `PUT` | `/api/jobs/{id}` | `Admin` | Update job details |
-| `DELETE` | `/api/jobs/{id}` | `Admin` | Delete a job (prevented if applications exist) |
+| `POST` | `/api/jobs` | `Recruiter`, `Admin` | Create a new job |
+| `PUT` | `/api/jobs/{id}` | Job Creator | Update job details |
+| `PUT` | `/api/jobs/{id}/close` | Job Creator | Close job (`IsActive = false`) |
+| `DELETE` | `/api/jobs/{id}` | Job Creator / `Admin` | Delete a job (prevented if applications exist) |
 
 ### 👤 Candidates (`/api/candidates`)
 | Method | Route | Authorization | Description |
 |---|---|---|---|
 | `GET` | `/api/candidates` | `Admin` | Get all candidate profiles |
 | `GET` | `/api/candidates/{id}` | `Candidate` (Owner) / `Admin` | Get candidate profile by ID |
-| `PUT` | `/api/candidates/{id}` | `Candidate` (Owner) / `Admin` | Update candidate name and CV URL |
-| `DELETE` | `/api/candidates/{id}` | `Admin` | Delete candidate profile |
+| `PUT` | `/api/candidates/{id}` | `Candidate` (Owner only) | Update candidate profile (Admin excluded) |
+| `DELETE` | `/api/candidates/{id}` | `Candidate` (Owner) / `Admin` | Delete candidate profile |
 
 ### 📄 Applications (`/api/applications`)
 | Method | Route | Authorization | Description |
 |---|---|---|---|
 | `POST` | `/api/applications` | `Candidate` | Apply to a job (`{"jobId": 1}`) |
-| `GET` | `/api/applications/{id}` | `Candidate` (Owner) / `Admin` | Get application by ID |
+| `GET` | `/api/applications/{id}` | `Candidate` (Owner) / Job Creator / `Admin` | Get application by ID |
 | `GET` | `/api/applications/my` | `Candidate` | Get all applications of the logged-in candidate |
-| `GET` | `/api/applications/job/{jobId}` | `Admin` | Get all applications for a specific job |
-| `PUT` | `/api/applications/{id}/status` | `Admin` | Update application status |
+| `GET` | `/api/applications/job/{jobId}` | Job Creator / `Admin` | Get all applications for a specific job |
+| `PUT` | `/api/applications/{id}/status` | Job Creator | Update application status |
 | `DELETE` | `/api/applications/{id}` | `Candidate` (Owner) | Cancel application |
 
 ---
 
 ## 👥 Pre-seeded Test Accounts
 
-When the application runs for the first time, `DbInitializer` automatically seeds the following credentials:
+The EF Core migration automatically seeds the database with the following accounts:
 
 | Role | Email | Password | Linked Entity |
 |---|---|---|---|
-| **Admin** | `admin@trackapplication.com` | `Admin@123456` | — |
+| **Admin** | `admin@trackapplication.com` | `Admin@123456` | System Administrator |
+| **Recruiter** | `recruiter@trackapplication.com` | `Recruiter@123456` | Job Creator (Jobs #1, #2) |
 | **Candidate** | `ahmed@example.com` | `Candidate@123456` | Candidate #1 (Ahmed Ali) |
 | **Candidate** | `sara@example.com` | `Candidate@123456` | Candidate #2 (Sara Mohamed) |
 

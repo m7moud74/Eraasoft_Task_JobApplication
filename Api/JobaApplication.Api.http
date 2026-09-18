@@ -8,10 +8,22 @@ Content-Type: application/json
   "name": "Mahmoud Hassan",
   "email": "mahmoud@example.com",
   "password": "Password@123",
-  "cvUrl": "https://example.com/cvs/mahmoud.pdf"
+  "cvUrl": "https://example.com/cvs/mahmoud.pdf",
+  "role": "Candidate"
 }
 
-### 2. Login as Admin
+### 2. Register a new Recruiter
+POST {{HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Karim Recruiter",
+  "email": "karim@company.com",
+  "password": "Password@123",
+  "role": "Recruiter"
+}
+
+### 3. Login as Admin
 # @name adminLogin
 POST {{HostAddress}}/api/auth/login
 Content-Type: application/json
@@ -21,7 +33,17 @@ Content-Type: application/json
   "password": "Admin@123456"
 }
 
-### 3. Login as Candidate
+### 4. Login as Recruiter
+# @name recruiterLogin
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "recruiter@trackapplication.com",
+  "password": "Recruiter@123456"
+}
+
+### 5. Login as Candidate (Ahmed - Id: 1)
 # @name candidateLogin
 POST {{HostAddress}}/api/auth/login
 Content-Type: application/json
@@ -31,12 +53,24 @@ Content-Type: application/json
   "password": "Candidate@123456"
 }
 
+### 6. Login as Candidate (Sara - Id: 2)
+# @name candidate2Login
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "sara@example.com",
+  "password": "Candidate@123456"
+}
+
 ### Store Token Variables (Replace manually or use in REST Client)
 @adminToken = {{adminLogin.response.body.token}}
+@recruiterToken = {{recruiterLogin.response.body.token}}
 @candidateToken = {{candidateLogin.response.body.token}}
+@candidate2Token = {{candidate2Login.response.body.token}}
 
 ###############################################################################
-# JOBS CRUD
+# JOBS CRUD & LIFECYCLE
 ###############################################################################
 
 ### Get All Jobs (Public)
@@ -47,10 +81,10 @@ Accept: application/json
 GET {{HostAddress}}/api/jobs/1
 Accept: application/json
 
-### Create Job (Admin Only)
+### Create Job (Recruiter or Admin)
 POST {{HostAddress}}/api/jobs
 Content-Type: application/json
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{recruiterToken}}
 
 {
   "title": "Backend .NET Engineer",
@@ -58,10 +92,10 @@ Authorization: Bearer {{adminToken}}
   "isActive": true
 }
 
-### Update Job (Admin Only)
+### Update Job (Only creator recruiter can update)
 PUT {{HostAddress}}/api/jobs/1
 Content-Type: application/json
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{recruiterToken}}
 
 {
   "title": "Lead .NET Architect",
@@ -69,12 +103,20 @@ Authorization: Bearer {{adminToken}}
   "isActive": true
 }
 
-### Delete Job (Admin Only - fails if applications exist)
-DELETE {{HostAddress}}/api/jobs/1
+### Close Job (Only the creator who opened the job can close it - Not any Admin!)
+PUT {{HostAddress}}/api/jobs/1/close
+Authorization: Bearer {{recruiterToken}}
+
+### Attempt Close Job with Admin (Fails 403 because Admin did not open this job)
+PUT {{HostAddress}}/api/jobs/1/close
 Authorization: Bearer {{adminToken}}
 
+### Delete Job (Admin or Job Creator - fails if applications exist)
+DELETE {{HostAddress}}/api/jobs/1
+Authorization: Bearer {{recruiterToken}}
+
 ###############################################################################
-# CANDIDATES CRUD
+# CANDIDATES CRUD & PERMISSIONS
 ###############################################################################
 
 ### Get All Candidates (Admin Only)
@@ -85,7 +127,7 @@ Authorization: Bearer {{adminToken}}
 GET {{HostAddress}}/api/candidates/1
 Authorization: Bearer {{candidateToken}}
 
-### Update Candidate Profile
+### Update Candidate Profile (Candidate ONLY - Admin cannot update candidate)
 PUT {{HostAddress}}/api/candidates/1
 Content-Type: application/json
 Authorization: Bearer {{candidateToken}}
@@ -95,8 +137,27 @@ Authorization: Bearer {{candidateToken}}
   "cvUrl": "https://example.com/cvs/ahmed-v2.pdf"
 }
 
+### Attempt to Update Candidate Profile with Admin (Fails 403 - Only candidate can update)
+PUT {{HostAddress}}/api/candidates/1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Hacked by Admin",
+  "cvUrl": "https://example.com/cvs/hacked.pdf"
+}
+
+### Delete Candidate Profile (Both Admin and Candidate can delete)
+### Option A: Candidate deletes their own profile
+DELETE {{HostAddress}}/api/candidates/1
+Authorization: Bearer {{candidateToken}}
+
+### Option B: Admin deletes candidate profile
+# DELETE {{HostAddress}}/api/candidates/2
+# Authorization: Bearer {{adminToken}}
+
 ###############################################################################
-# APPLICATIONS CRUD
+# APPLICATIONS CRUD & LIFECYCLE
 ###############################################################################
 
 ### Apply to a Job (Candidate Only - CandidateId resolved from token)
@@ -112,21 +173,30 @@ Authorization: Bearer {{candidateToken}}
 GET {{HostAddress}}/api/applications/my
 Authorization: Bearer {{candidateToken}}
 
-### Get Application By ID
+### Get Application By ID (Owner Candidate, Job Creator Recruiter, or Admin)
 GET {{HostAddress}}/api/applications/1
 Authorization: Bearer {{candidateToken}}
 
-### Get Applications for a Job (Admin Only)
+### Get Applications for a Job (Job Creator Recruiter or Admin)
 GET {{HostAddress}}/api/applications/job/1
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{recruiterToken}}
 
-### Update Application Status (Admin Only)
+### Update Application Status (Only the Recruiter who opened the job can update its status)
+PUT {{HostAddress}}/api/applications/1/status
+Content-Type: application/json
+Authorization: Bearer {{recruiterToken}}
+
+{
+  "status": 2
+}
+
+### Attempt Update Application Status with another user (Fails 403)
 PUT {{HostAddress}}/api/applications/1/status
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 {
-  "status": 1
+  "status": 3
 }
 
 ### Cancel Application (Candidate Only)

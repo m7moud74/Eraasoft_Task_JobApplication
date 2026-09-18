@@ -45,7 +45,7 @@ public class CandidatesController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize]
+    [Authorize(Roles = "Candidate")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCandidateRequest request, CancellationToken cancellationToken)
     {
         try
@@ -68,7 +68,7 @@ public class CandidatesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Candidate")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         try

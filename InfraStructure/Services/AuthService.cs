@@ -45,49 +45,68 @@ public class AuthService : IAuthService
             throw new BadRequestException("Email is already registered.");
         }
 
-        if (!await _roleManager.RoleExistsAsync("Candidate"))
+        var role = string.IsNullOrWhiteSpace(request.Role) ? "Candidate" : request.Role.Trim();
+        if (!string.Equals(role, "Candidate", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(role, "Recruiter", StringComparison.OrdinalIgnoreCase))
         {
-            await _roleManager.CreateAsync(new IdentityRole("Candidate"));
+            throw new BadRequestException("Role must be either 'Candidate' or 'Recruiter'.");
         }
 
-        var candidate = new Candidate
-        {
-            Name = request.Name.Trim(),
-            Email = emailNormalized,
-            CvUrl = request.CvUrl?.Trim() ?? string.Empty
-        };
+        role = string.Equals(role, "Recruiter", StringComparison.OrdinalIgnoreCase) ? "Recruiter" : "Candidate";
 
-        await _candidateRepository.InsertAsync(candidate, cancellationToken);
-        await _candidateRepository.SaveChangesAsync(cancellationToken);
+        if (!await _roleManager.RoleExistsAsync(role))
+        {
+            await _roleManager.CreateAsync(new IdentityRole(role));
+        }
+
+        int? candidateId = null;
+        Candidate? candidate = null;
+
+        if (role == "Candidate")
+        {
+            candidate = new Candidate
+            {
+                Name = request.Name.Trim(),
+                Email = emailNormalized,
+                CvUrl = request.CvUrl?.Trim() ?? string.Empty
+            };
+
+            await _candidateRepository.InsertAsync(candidate, cancellationToken);
+            await _candidateRepository.SaveChangesAsync(cancellationToken);
+            candidateId = candidate.Id;
+        }
 
         var user = new ApplicationUser
         {
             UserName = emailNormalized,
             Email = emailNormalized,
-            CandidateId = candidate.Id
+            CandidateId = candidateId
         };
 
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
         {
-            _candidateRepository.Remove(candidate);
-            await _candidateRepository.SaveChangesAsync(cancellationToken);
+            if (candidate is not null)
+            {
+                _candidateRepository.Remove(candidate);
+                await _candidateRepository.SaveChangesAsync(cancellationToken);
+            }
 
             var errorMsg = string.Join("; ", result.Errors.Select(e => e.Description));
             throw new BadRequestException($"Registration failed: {errorMsg}");
         }
 
-        await _userManager.AddToRoleAsync(user, "Candidate");
+        await _userManager.AddToRoleAsync(user, role);
 
-        var token = _jwtTokenService.GenerateToken(user.Id, user.Email!, "Candidate", candidate.Id);
+        var token = _jwtTokenService.GenerateToken(user.Id, user.Email!, role, candidateId);
 
         return new AuthResponse
         {
             Token = token,
             Email = user.Email!,
-            Name = candidate.Name,
-            Role = "Candidate",
-            CandidateId = candidate.Id
+            Name = candidate?.Name ?? request.Name.Trim(),
+            Role = role,
+            CandidateId = candidateId
         };
     }
 

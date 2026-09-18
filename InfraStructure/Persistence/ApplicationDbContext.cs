@@ -26,6 +26,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.CancelledAt).IsRequired(false);
         });
 
+        modelBuilder.Entity<Job>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CreatedByUserId).IsRequired(false);
+        });
+
         modelBuilder.Entity<ApplicationUser>(entity =>
         {
             entity.HasOne(u => u.Candidate)
@@ -33,5 +39,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                   .HasForeignKey<ApplicationUser>(u => u.CandidateId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
+
+        modelBuilder.SeedData();
     }
 }

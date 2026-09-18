@@ -85,7 +85,7 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpGet("job/{jobId:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Recruiter,Admin")]
     public async Task<IActionResult> GetJobApplications(int jobId, CancellationToken cancellationToken)
     {
         try
@@ -97,10 +97,14 @@ public class ApplicationsController : ControllerBase
         {
             return NotFound(new { error = ex.Message });
         }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
     }
 
     [HttpPut("{id:int}/status")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Recruiter,Admin")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateApplicationStatusRequest request, CancellationToken cancellationToken)
     {
         try
@@ -111,6 +115,10 @@ public class ApplicationsController : ControllerBase
         catch (NotFoundException ex)
         {
             return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
         }
         catch (DomainException ex)
         {

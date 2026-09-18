@@ -8,5 +8,6 @@ public interface IJobService
     Task<JobDto> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<JobDto> CreateAsync(CreateJobRequest request, CancellationToken cancellationToken = default);
     Task<JobDto> UpdateAsync(int id, UpdateJobRequest request, CancellationToken cancellationToken = default);
+    Task<JobDto> CloseJobAsync(int id, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

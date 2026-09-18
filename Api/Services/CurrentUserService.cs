@@ -43,4 +43,6 @@ public class CurrentUserService : ICurrentUserService
     public bool IsAdmin => User?.IsInRole("Admin") ?? false;
 
     public bool IsCandidate => User?.IsInRole("Candidate") ?? false;
+
+    public bool IsRecruiter => User?.IsInRole("Recruiter") ?? false;
 }
