@@ -1,6 +1,8 @@
 using JobApplication.Application.DTOs;
 using JobApplication.Application.Exceptions;
-using JobApplication.Application.Interfaces;
+using JobApplication.Application.Feature.Command.Jobs;
+using JobApplication.Application.Feature.Query.Jobs;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,18 +12,18 @@ namespace JobApplication.Api.Controllers;
 [Route("api/[controller]")]
 public class JobsController : ControllerBase
 {
-    private readonly IJobService _jobService;
+    private readonly IMediator _mediator;
 
-    public JobsController(IJobService jobService)
+    public JobsController(IMediator mediator)
     {
-        _jobService = jobService;
+        _mediator = mediator;
     }
 
     [HttpGet]
     [AllowAnonymous]
     public async Task<IActionResult> GetAll([FromQuery] bool? activeOnly, CancellationToken cancellationToken)
     {
-        var jobs = await _jobService.GetAllAsync(activeOnly, cancellationToken);
+        var jobs = await _mediator.Send(new GetAllJobsQuery(activeOnly), cancellationToken);
         return Ok(jobs);
     }
 
@@ -31,7 +33,7 @@ public class JobsController : ControllerBase
     {
         try
         {
-            var job = await _jobService.GetByIdAsync(id, cancellationToken);
+            var job = await _mediator.Send(new GetJobByIdQuery(id), cancellationToken);
             return Ok(job);
         }
         catch (NotFoundException ex)
@@ -46,7 +48,7 @@ public class JobsController : ControllerBase
     {
         try
         {
-            var createdJob = await _jobService.CreateAsync(request, cancellationToken);
+            var createdJob = await _mediator.Send(new CreateJobCommand(request.Title, request.Description, request.IsActive), cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = createdJob.Id }, createdJob);
         }
         catch (BadRequestException ex)
@@ -61,7 +63,7 @@ public class JobsController : ControllerBase
     {
         try
         {
-            var updatedJob = await _jobService.UpdateAsync(id, request, cancellationToken);
+            var updatedJob = await _mediator.Send(new UpdateJobCommand(id, request.Title, request.Description, request.IsActive), cancellationToken);
             return Ok(updatedJob);
         }
         catch (NotFoundException ex)
@@ -84,7 +86,7 @@ public class JobsController : ControllerBase
     {
         try
         {
-            var closedJob = await _jobService.CloseJobAsync(id, cancellationToken);
+            var closedJob = await _mediator.Send(new CloseJobCommand(id), cancellationToken);
             return Ok(closedJob);
         }
         catch (NotFoundException ex)
@@ -103,7 +105,7 @@ public class JobsController : ControllerBase
     {
         try
         {
-            await _jobService.DeleteAsync(id, cancellationToken);
+            await _mediator.Send(new DeleteJobCommand(id), cancellationToken);
             return NoContent();
         }
         catch (NotFoundException ex)

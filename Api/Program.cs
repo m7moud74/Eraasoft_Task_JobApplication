@@ -1,5 +1,6 @@
 using System.Text;
 using JobApplication.Api.Services;
+using JobApplication.Application;
 using JobApplication.Application.Interfaces;
 using JobApplication.Infrastructure;
 using JobApplication.Infrastructure.Persistence;
@@ -14,6 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+// MediatR & Application Services
+builder.Services.AddApplicationServices();
 
 // 2. Infrastructure Services (DbContext, Identity, Repositories, Services)
 builder.Services.AddInfrastructureServices(builder.Configuration);
@@ -43,6 +47,27 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ClockSkew = TimeSpan.Zero
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[JWT Auth Failed]: {context.Exception.Message}");
+            Console.ResetColor();
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            if (!string.IsNullOrEmpty(context.Error) || !string.IsNullOrEmpty(context.ErrorDescription))
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"[JWT Challenge]: {context.Error} - {context.ErrorDescription}");
+                Console.ResetColor();
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -55,7 +80,7 @@ builder.Services.AddSwaggerGen(c =>
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Enter JWT Bearer token like: Bearer {token}",
+        Description = "Enter your JWT token directly (without the 'Bearer ' prefix). Example: eyJhbGciOi...",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -66,7 +91,7 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecuritySchemeReference("Bearer"),
+            new OpenApiSecuritySchemeReference("Bearer", document),
             new List<string>()
         }
     });

@@ -1,6 +1,8 @@
 using JobApplication.Application.DTOs;
 using JobApplication.Application.Exceptions;
-using JobApplication.Application.Interfaces;
+using JobApplication.Application.Feature.Command.Candidates;
+using JobApplication.Application.Feature.Query.Candidates;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,18 +12,18 @@ namespace JobApplication.Api.Controllers;
 [Route("api/[controller]")]
 public class CandidatesController : ControllerBase
 {
-    private readonly ICandidateService _candidateService;
+    private readonly IMediator _mediator;
 
-    public CandidatesController(ICandidateService candidateService)
+    public CandidatesController(IMediator mediator)
     {
-        _candidateService = candidateService;
+        _mediator = mediator;
     }
 
     [HttpGet]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var candidates = await _candidateService.GetAllAsync(cancellationToken);
+        var candidates = await _mediator.Send(new GetAllCandidatesQuery(), cancellationToken);
         return Ok(candidates);
     }
 
@@ -31,7 +33,7 @@ public class CandidatesController : ControllerBase
     {
         try
         {
-            var candidate = await _candidateService.GetByIdAsync(id, cancellationToken);
+            var candidate = await _mediator.Send(new GetCandidateByIdQuery(id), cancellationToken);
             return Ok(candidate);
         }
         catch (NotFoundException ex)
@@ -50,7 +52,7 @@ public class CandidatesController : ControllerBase
     {
         try
         {
-            var updated = await _candidateService.UpdateAsync(id, request, cancellationToken);
+            var updated = await _mediator.Send(new UpdateCandidateCommand(id, request.Name, request.CvUrl), cancellationToken);
             return Ok(updated);
         }
         catch (NotFoundException ex)
@@ -73,7 +75,7 @@ public class CandidatesController : ControllerBase
     {
         try
         {
-            await _candidateService.DeleteAsync(id, cancellationToken);
+            await _mediator.Send(new DeleteCandidateCommand(id), cancellationToken);
             return NoContent();
         }
         catch (NotFoundException ex)

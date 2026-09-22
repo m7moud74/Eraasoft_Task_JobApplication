@@ -22,7 +22,7 @@ public class JwtTokenService : IJwtTokenService
 
     public string GenerateToken(string userId, string email, string role, int? candidateId)
     {
-        var secretKey = _configuration["Jwt:Key"] ?? "DefaultSuperSecretKeyForDevelopmentOnly12345!";
+        var secretKey = _configuration["Jwt:Key"] ?? "TrackApplicationSecureJwtSigningKeyForDevelopment2026!";
         var issuer = _configuration["Jwt:Issuer"] ?? "JobApplicationApi";
         var audience = _configuration["Jwt:Audience"] ?? "JobApplicationUsers";
         var expiryMinutes = int.TryParse(_configuration["Jwt:DurationInMinutes"], out var minutes) ? minutes : 120;

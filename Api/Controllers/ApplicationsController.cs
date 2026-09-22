@@ -1,7 +1,10 @@
 using JobApplication.Application.DTOs;
 using JobApplication.Application.Exceptions;
+using JobApplication.Application.Feature.Command.Applications;
+using JobApplication.Application.Feature.Query.Applications;
 using JobApplication.Application.Interfaces;
 using JobApplication.Domain.Exceptions;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -12,12 +15,12 @@ namespace JobApplication.Api.Controllers;
 [Route("api/[controller]")]
 public class ApplicationsController : ControllerBase
 {
-    private readonly IJobApplicationService _applicationService;
+    private readonly IMediator _mediator;
     private readonly ICurrentUserService _currentUserService;
 
-    public ApplicationsController(IJobApplicationService applicationService, ICurrentUserService currentUserService)
+    public ApplicationsController(IMediator mediator, ICurrentUserService currentUserService)
     {
-        _applicationService = applicationService;
+        _mediator = mediator;
         _currentUserService = currentUserService;
     }
 
@@ -33,7 +36,7 @@ public class ApplicationsController : ControllerBase
 
         try
         {
-            var application = await _applicationService.ApplyAsync(request.JobId, candidateId.Value, cancellationToken);
+            var application = await _mediator.Send(new ApplyJobCommand(request.JobId, candidateId.Value), cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = application.Id }, application);
         }
         catch (NotFoundException ex)
@@ -52,10 +55,11 @@ public class ApplicationsController : ControllerBase
     {
         try
         {
-            var application = await _applicationService.GetByIdAsync(
-                id,
-                _currentUserService.CandidateId ?? 0,
-                _currentUserService.IsAdmin,
+            var application = await _mediator.Send(
+                new GetApplicationByIdQuery(
+                    id,
+                    _currentUserService.CandidateId ?? 0,
+                    _currentUserService.IsAdmin),
                 cancellationToken);
 
             return Ok(application);
@@ -80,7 +84,7 @@ public class ApplicationsController : ControllerBase
             return Unauthorized(new { error = "Authenticated candidate profile was not found." });
         }
 
-        var applications = await _applicationService.GetMyApplicationsAsync(candidateId.Value, cancellationToken);
+        var applications = await _mediator.Send(new GetMyApplicationsQuery(candidateId.Value), cancellationToken);
         return Ok(applications);
     }
 
@@ -90,7 +94,7 @@ public class ApplicationsController : ControllerBase
     {
         try
         {
-            var applications = await _applicationService.GetJobApplicationsAsync(jobId, cancellationToken);
+            var applications = await _mediator.Send(new GetJobApplicationsQuery(jobId), cancellationToken);
             return Ok(applications);
         }
         catch (NotFoundException ex)
@@ -109,7 +113,7 @@ public class ApplicationsController : ControllerBase
     {
         try
         {
-            var updated = await _applicationService.UpdateStatusAsync(id, request.Status, cancellationToken);
+            var updated = await _mediator.Send(new UpdateApplicationStatusCommand(id, request.Status), cancellationToken);
             return Ok(updated);
         }
         catch (NotFoundException ex)
@@ -127,6 +131,7 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Candidate")]
     public async Task<IActionResult> Cancel(int id, CancellationToken cancellationToken)
     {
         // 1. Check authenticated identity
@@ -163,7 +168,7 @@ public class ApplicationsController : ControllerBase
 
         try
         {
-            await _applicationService.CancelAsync(id, candidateId.Value, cancellationToken);
+            await _mediator.Send(new CancelApplicationCommand(id, candidateId.Value), cancellationToken);
             return NoContent();
         }
         catch (NotFoundException ex)

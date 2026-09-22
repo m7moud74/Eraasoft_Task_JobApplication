@@ -25,14 +25,19 @@ The solution is divided into 4 decoupled layers following the Clean Architecture
 - **Domain Exceptions**:
   - `DomainException`: Enforces core business invariants (e.g. preventing cancellation of an already cancelled application or an application in the interview phase).
 
-### 2. Application Layer
+### 2. Application Layer (CQRS with MediatR)
+- **CQRS Pattern**:
+  - **Commands (`Application/Feature/Command/`)**:
+    - `Applications/`: `ApplyJobCommand`, `UpdateApplicationStatusCommand`, `CancelApplicationCommand`
+    - `Jobs/`: `CreateJobCommand`, `UpdateJobCommand`, `CloseJobCommand`, `DeleteJobCommand`
+    - `Candidates/`: `UpdateCandidateCommand`, `DeleteCandidateCommand`
+    - `Auth/`: `RegisterCommand`, `LoginCommand`
+  - **Queries (`Application/Feature/Query/`)**:
+    - `Applications/`: `GetApplicationByIdQuery`, `GetMyApplicationsQuery`, `GetJobApplicationsQuery`
+    - `Jobs/`: `GetAllJobsQuery`, `GetJobByIdQuery`
+    - `Candidates/`: `GetAllCandidatesQuery`, `GetCandidateByIdQuery`
 - **Interfaces**:
-  - `IJobService`, `ICandidateService`, `IJobApplicationService`, `IAuthService`, `ICurrentUserService`.
-  - `IJobRepository`, `ICandidateRepository`, `IJobCandidateApplicationRepository`.
-- **Services**:
-  - `JobService`: Handles business logic and validation for jobs.
-  - `CandidateService`: Handles candidate profiles with ownership authorization.
-  - `JobApplicationService`: Manages the application lifecycle (apply, status change, cancellation).
+  - `IJobRepository`, `ICandidateRepository`, `IJobCandidateApplicationRepository`, `IAuthService`, `ICurrentUserService`.
 - **DTOs**:
   - Strongly-typed request/response models decoupling internal database entities from external clients.
 

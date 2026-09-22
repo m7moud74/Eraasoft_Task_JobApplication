@@ -1,6 +1,7 @@
 using JobApplication.Application.DTOs;
 using JobApplication.Application.Exceptions;
-using JobApplication.Application.Interfaces;
+using JobApplication.Application.Feature.Command.Auth;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,11 +11,11 @@ namespace JobApplication.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly IAuthService _authService;
+    private readonly IMediator _mediator;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IMediator mediator)
     {
-        _authService = authService;
+        _mediator = mediator;
     }
 
     [HttpPost("register")]
@@ -23,7 +24,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var result = await _authService.RegisterAsync(request, cancellationToken);
+            var result = await _mediator.Send(new RegisterCommand(request), cancellationToken);
             return Ok(result);
         }
         catch (BadRequestException ex)
@@ -38,7 +39,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var result = await _authService.LoginAsync(request, cancellationToken);
+            var result = await _mediator.Send(new LoginCommand(request), cancellationToken);
             return Ok(result);
         }
         catch (BadRequestException ex)
