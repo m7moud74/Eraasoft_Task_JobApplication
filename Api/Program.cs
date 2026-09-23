@@ -72,6 +72,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+
 // 4. OpenAPI / Swagger Documentation with Bearer Security Scheme
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
