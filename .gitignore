@@ -51,3 +51,7 @@ ehthumbs.db
 appsettings.*.local.json
 appsettings.Local.json
 *.local.json
+
+## Uploaded files
+**/wwwroot/uploads/**
+!**/wwwroot/uploads/.gitkeep

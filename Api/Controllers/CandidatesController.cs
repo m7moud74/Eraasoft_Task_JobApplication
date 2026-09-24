@@ -3,6 +3,7 @@ using JobApplication.Application.DTOs;
 using JobApplication.Application.Exceptions;
 using JobApplication.Application.Feature.Command.Candidates;
 using JobApplication.Application.Feature.Query.Candidates;
+using JobApplication.Application.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -15,10 +16,12 @@ namespace JobApplication.Api.Controllers;
 public class CandidatesController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly ICurrentUserService _currentUserService;
 
-    public CandidatesController(IMediator mediator)
+    public CandidatesController(IMediator mediator, ICurrentUserService currentUserService)
     {
         _mediator = mediator;
+        _currentUserService = currentUserService;
     }
 
     [HttpGet]
@@ -27,6 +30,31 @@ public class CandidatesController : ControllerBase
     {
         var candidates = await _mediator.Send(new GetAllCandidatesQuery(), cancellationToken);
         return Ok(candidates);
+    }
+
+    [HttpGet("me")]
+    [Authorize(Roles = "Candidate")]
+    public async Task<IActionResult> GetMyProfile(CancellationToken cancellationToken)
+    {
+        var candidateId = _currentUserService.CandidateId;
+        if (!candidateId.HasValue)
+        {
+            return Unauthorized(new { error = "Authenticated candidate profile was not found." });
+        }
+
+        try
+        {
+            var candidate = await _mediator.Send(new GetCandidateByIdQuery(candidateId.Value), cancellationToken);
+            return Ok(candidate);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
     }
 
     [HttpGet("{id:int}")]
@@ -45,6 +73,35 @@ public class CandidatesController : ControllerBase
         catch (ForbiddenAccessException ex)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("me")]
+    [Authorize(Roles = "Candidate")]
+    public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateCandidateRequest request, CancellationToken cancellationToken)
+    {
+        var candidateId = _currentUserService.CandidateId;
+        if (!candidateId.HasValue)
+        {
+            return Unauthorized(new { error = "Authenticated candidate profile was not found." });
+        }
+
+        try
+        {
+            var updated = await _mediator.Send(new UpdateCandidateCommand(candidateId.Value, request.Name, request.CvUrl), cancellationToken);
+            return Ok(updated);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+        catch (BadRequestException ex)
+        {
+            return BadRequest(new { error = ex.Message });
         }
     }
 
@@ -71,10 +128,50 @@ public class CandidatesController : ControllerBase
         }
     }
 
-    [HttpPost("{id:int}/cv")]
+    [HttpPost("cv")]
+    [HttpPost("me/cv")]
     [Authorize(Roles = "Candidate")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> UploadCv(int id, IFormFile file, CancellationToken cancellationToken)
+    public async Task<IActionResult> UploadCv(IFormFile file, CancellationToken cancellationToken)
+    {
+        var candidateId = _currentUserService.CandidateId;
+        if (!candidateId.HasValue)
+        {
+            return Unauthorized(new { error = "Authenticated candidate profile was not found." });
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { error = "A valid file must be provided." });
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var candidate = await _mediator.Send(
+                new UploadCandidateCvCommand(candidateId.Value, stream, file.FileName, file.ContentType, file.Length),
+                cancellationToken);
+
+            return Ok(candidate);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+        catch (BadRequestException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:int}/cv")]
+    [Authorize(Roles = "Admin,Candidate")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadCvById(int id, IFormFile file, CancellationToken cancellationToken)
     {
         if (file == null || file.Length == 0)
         {
@@ -104,9 +201,35 @@ public class CandidatesController : ControllerBase
         }
     }
 
-    [HttpDelete("{id:int}/cv")]
+    [HttpDelete("cv")]
+    [HttpDelete("me/cv")]
     [Authorize(Roles = "Candidate")]
-    public async Task<IActionResult> DeleteCv(int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteCv(CancellationToken cancellationToken)
+    {
+        var candidateId = _currentUserService.CandidateId;
+        if (!candidateId.HasValue)
+        {
+            return Unauthorized(new { error = "Authenticated candidate profile was not found." });
+        }
+
+        try
+        {
+            var candidate = await _mediator.Send(new DeleteCandidateCvCommand(candidateId.Value), cancellationToken);
+            return Ok(candidate);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:int}/cv")]
+    [Authorize(Roles = "Admin,Candidate")]
+    public async Task<IActionResult> DeleteCvById(int id, CancellationToken cancellationToken)
     {
         try
         {

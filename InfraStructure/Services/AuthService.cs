@@ -316,6 +316,17 @@ public class AuthService : IAuthService
                 name = candidate.Name;
             }
         }
+        else if (role == "Candidate")
+        {
+            var candidates = await _candidateRepository.GetAllAsync(cancellationToken);
+            var candidate = candidates.FirstOrDefault(c => string.Equals(c.Email, user.Email, StringComparison.OrdinalIgnoreCase));
+            if (candidate is not null)
+            {
+                user.CandidateId = candidate.Id;
+                await _userManager.UpdateAsync(user);
+                name = candidate.Name;
+            }
+        }
         else
         {
             var recruiter = recruiterId.HasValue

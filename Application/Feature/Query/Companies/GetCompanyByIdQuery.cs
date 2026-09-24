@@ -1,6 +1,7 @@
 using JobApplication.Application.DTOs;
 using JobApplication.Application.Exceptions;
 using JobApplication.Application.Interfaces;
+using JobApplication.Domain.Enums;
 using MediatR;
 
 namespace JobApplication.Application.Feature.Query.Companies;
@@ -26,7 +27,7 @@ public class GetCompanyByIdQueryHandler : IRequestHandler<GetCompanyByIdQuery, C
             throw new NotFoundException($"Company with ID {request.Id} was not found.");
         }
 
-        if (!_currentUserService.IsAdmin && _currentUserService.CompanyId != request.Id)
+        if (company.Status != CompanyStatus.Approved && !_currentUserService.IsAdmin && _currentUserService.CompanyId != request.Id)
         {
             throw new ForbiddenAccessException("You are not authorized to view details for this company.");
         }

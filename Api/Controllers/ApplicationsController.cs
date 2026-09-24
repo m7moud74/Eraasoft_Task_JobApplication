@@ -75,6 +75,7 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpGet("my")]
+    [HttpGet("my-applications")]
     [Authorize(Roles = "Candidate")]
     public async Task<IActionResult> GetMyApplications(CancellationToken cancellationToken)
     {
@@ -130,6 +131,7 @@ public class ApplicationsController : ControllerBase
         }
     }
 
+    [HttpPut("{id:int}/cancel")]
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Candidate")]
     public async Task<IActionResult> Cancel(int id, CancellationToken cancellationToken)

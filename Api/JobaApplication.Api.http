@@ -287,8 +287,8 @@ Authorization: Bearer {{approvedRecruiterToken}}
 # CANDIDATE CV FILE UPLOAD (CLOUDINARY) & BACKGROUND EMAILS
 ###############################################################################
 
-### 11. Candidate: Upload CV via multipart/form-data
-POST {{HostAddress}}/api/candidates/1/cv
+### 11. Candidate: Upload CV directly (ID resolved automatically from CurrentUserService)
+POST {{HostAddress}}/api/candidates/cv
 Authorization: Bearer {{candidateToken}}
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
@@ -299,8 +299,8 @@ Content-Type: application/pdf
 %PDF-1.4 sample pdf content for testing
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--
 
-### 12. Candidate: Delete uploaded CV
-DELETE {{HostAddress}}/api/candidates/1/cv
+### 12. Candidate: Delete uploaded CV directly
+DELETE {{HostAddress}}/api/candidates/cv
 Authorization: Bearer {{candidateToken}}
 
 ### 13. Recruiter: Update Application Status to UnderReview (Triggers Hangfire Email)

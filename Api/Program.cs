@@ -1,4 +1,5 @@
 using System.Text;
+using Hangfire;
 using JobApplication.Api.Middlewares;
 using JobApplication.Api.Services;
 using JobApplication.Application;
@@ -14,7 +15,11 @@ using Microsoft.OpenApi;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Core Framework Services
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
@@ -129,8 +134,10 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Track Application System API v1");
     });
 }
+app.UseHangfireDashboard();
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 app.UseRateLimiter();
 
