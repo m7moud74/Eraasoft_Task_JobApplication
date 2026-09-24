@@ -11,15 +11,21 @@ public class DeleteJobCommandHandler : IRequestHandler<DeleteJobCommand, bool>
     private readonly IJobRepository _jobRepository;
     private readonly IJobCandidateApplicationRepository _applicationRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICacheService _cacheService;
+    private readonly IAuditService _auditService;
 
     public DeleteJobCommandHandler(
         IJobRepository jobRepository,
         IJobCandidateApplicationRepository applicationRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ICacheService cacheService,
+        IAuditService auditService)
     {
         _jobRepository = jobRepository;
         _applicationRepository = applicationRepository;
         _currentUserService = currentUserService;
+        _cacheService = cacheService;
+        _auditService = auditService;
     }
 
     public async Task<bool> Handle(DeleteJobCommand request, CancellationToken cancellationToken)
@@ -30,9 +36,18 @@ public class DeleteJobCommandHandler : IRequestHandler<DeleteJobCommand, bool>
             throw new NotFoundException($"Job with ID {request.Id} was not found.");
         }
 
-        if (!_currentUserService.IsAdmin && job.CreatedByUserId != _currentUserService.UserId)
+        if (!_currentUserService.IsAdmin)
         {
-            throw new ForbiddenAccessException("You are not authorized to delete this job.");
+            var userCompanyId = _currentUserService.CompanyId;
+            if (!userCompanyId.HasValue || userCompanyId.Value != job.CompanyId)
+            {
+                throw new ForbiddenAccessException("A recruiter cannot delete a job belonging to another company.");
+            }
+
+            if (job.CreatedByUserId != _currentUserService.UserId && !_currentUserService.IsCompanyOwner)
+            {
+                throw new ForbiddenAccessException("You are not authorized to delete this job.");
+            }
         }
 
         var hasApplications = await _applicationRepository.AnyByJobIdAsync(request.Id, cancellationToken);
@@ -43,6 +58,12 @@ public class DeleteJobCommandHandler : IRequestHandler<DeleteJobCommand, bool>
 
         _jobRepository.Remove(job);
         await _jobRepository.SaveChangesAsync(cancellationToken);
+
+        // Invalidate jobs cache
+        await _cacheService.RemoveByPrefixAsync("jobs:", cancellationToken);
+
+        // Record audit log
+        await _auditService.LogAsync("Job deleted", "Job", job.Id.ToString(), $"Job '{job.Title}' deleted.", cancellationToken);
 
         return true;
     }

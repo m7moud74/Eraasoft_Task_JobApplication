@@ -4,6 +4,7 @@ using JobApplication.Application.Feature.Command.Jobs;
 using JobApplication.Application.Feature.Query.Jobs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JobApplication.Api.Controllers;
@@ -21,10 +22,22 @@ public class JobsController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<IActionResult> GetAll([FromQuery] bool? activeOnly, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(PagedResult<JobDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] bool? activeOnly = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = "createdAt",
+        [FromQuery] string? sortDirection = "desc",
+        [FromQuery] int? companyId = null,
+        CancellationToken cancellationToken = default)
     {
-        var jobs = await _mediator.Send(new GetAllJobsQuery(activeOnly), cancellationToken);
-        return Ok(jobs);
+        var result = await _mediator.Send(
+            new GetAllJobsQuery(page, pageSize, activeOnly, search, sortBy, sortDirection, companyId),
+            cancellationToken);
+
+        return Ok(result);
     }
 
     [HttpGet("{id:int}")]
@@ -43,22 +56,30 @@ public class JobsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Recruiter,Admin")]
+    [Authorize(Roles = "Recruiter,Company,Admin")]
     public async Task<IActionResult> Create([FromBody] CreateJobRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var createdJob = await _mediator.Send(new CreateJobCommand(request.Title, request.Description, request.IsActive), cancellationToken);
+            var createdJob = await _mediator.Send(new CreateJobCommand(request.Title, request.Description, request.IsActive, request.CompanyId), cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = createdJob.Id }, createdJob);
         }
         catch (BadRequestException ex)
         {
             return BadRequest(new { error = ex.Message });
         }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Recruiter,Admin")]
+    [Authorize(Roles = "Recruiter,Company,Admin")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateJobRequest request, CancellationToken cancellationToken)
     {
         try
@@ -81,7 +102,7 @@ public class JobsController : ControllerBase
     }
 
     [HttpPut("{id:int}/close")]
-    [Authorize(Roles = "Recruiter,Admin")]
+    [Authorize(Roles = "Recruiter,Company,Admin")]
     public async Task<IActionResult> Close(int id, CancellationToken cancellationToken)
     {
         try
@@ -100,7 +121,7 @@ public class JobsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Recruiter,Admin")]
+    [Authorize(Roles = "Recruiter,Company,Admin")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         try

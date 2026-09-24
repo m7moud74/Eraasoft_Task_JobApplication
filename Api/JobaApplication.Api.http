@@ -12,7 +12,7 @@ Content-Type: application/json
   "role": "Candidate"
 }
 
-### 2. Register a new Recruiter
+### 2. Attempt Public Recruiter Registration (Fails 400 - Recruiters must be added by a company)
 POST {{HostAddress}}/api/auth/register
 Content-Type: application/json
 
@@ -202,3 +202,138 @@ Authorization: Bearer {{adminToken}}
 ### Cancel Application (Candidate Only)
 DELETE {{HostAddress}}/api/applications/1
 Authorization: Bearer {{candidateToken}}
+
+###############################################################################
+# COMPANY & RECRUITER MANAGEMENT
+###############################################################################
+
+### 1. Register a new Company (Starts as Pending)
+POST {{HostAddress}}/api/companies/register
+Content-Type: application/json
+
+{
+  "name": "Acme Innovations",
+  "description": "Building modern cloud native solutions",
+  "logoUrl": "https://example.com/acme.png",
+  "ownerName": "John Acme",
+  "email": "john@acme.com",
+  "password": "Password@123"
+}
+
+### 2. Attempt login as owner of Pending Company (Fails 400 - Pending approval)
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@acme.com",
+  "password": "Password@123"
+}
+
+### 3. Admin: View Pending Companies
+GET {{HostAddress}}/api/companies/pending
+Authorization: Bearer {{adminToken}}
+
+### 4. Admin: View All Companies
+GET {{HostAddress}}/api/companies
+Authorization: Bearer {{adminToken}}
+
+### 5. Admin: Approve Company (e.g. Id 2 which is seeded as Pending)
+PUT {{HostAddress}}/api/companies/2/approve
+Authorization: Bearer {{adminToken}}
+
+### 6. Login as Approved Recruiter/Company Owner (Tech Solutions Recruiter)
+# @name approvedRecruiterLogin
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "recruiter@trackapplication.com",
+  "password": "Recruiter@123456"
+}
+
+@approvedRecruiterToken = {{approvedRecruiterLogin.response.body.token}}
+
+### 7. Company Owner: Add a new Recruiter to own Company
+POST {{HostAddress}}/api/companies/recruiters
+Content-Type: application/json
+Authorization: Bearer {{approvedRecruiterToken}}
+
+{
+  "name": "Alice Recruiter",
+  "email": "alice@trackapplication.com",
+  "password": "Password@123"
+}
+
+### 8. Company Owner: View own Company's Recruiters
+GET {{HostAddress}}/api/companies/recruiters
+Authorization: Bearer {{approvedRecruiterToken}}
+
+### 9. Admin: View Recruiters for a specific Company
+GET {{HostAddress}}/api/companies/1/recruiters
+Authorization: Bearer {{adminToken}}
+
+### 10. Recruiter: Create Job associated with own Company
+POST {{HostAddress}}/api/jobs
+Content-Type: application/json
+Authorization: Bearer {{approvedRecruiterToken}}
+
+{
+  "title": "Cloud Architect",
+  "description": "Lead Azure and AWS cloud migrations",
+  "isActive": true
+}
+
+###############################################################################
+# CANDIDATE CV FILE UPLOAD (CLOUDINARY) & BACKGROUND EMAILS
+###############################################################################
+
+### 11. Candidate: Upload CV via multipart/form-data
+POST {{HostAddress}}/api/candidates/1/cv
+Authorization: Bearer {{candidateToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="sample_cv.pdf"
+Content-Type: application/pdf
+
+%PDF-1.4 sample pdf content for testing
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 12. Candidate: Delete uploaded CV
+DELETE {{HostAddress}}/api/candidates/1/cv
+Authorization: Bearer {{candidateToken}}
+
+### 13. Recruiter: Update Application Status to UnderReview (Triggers Hangfire Email)
+PUT {{HostAddress}}/api/applications/1/status
+Content-Type: application/json
+Authorization: Bearer {{recruiterToken}}
+
+{
+  "status": "UnderReview"
+}
+
+### 14. Candidate: Cancel Application (Triggers Hangfire Email)
+PUT {{HostAddress}}/api/applications/1/cancel
+Authorization: Bearer {{candidateToken}}
+
+###############################################################################
+# PHASE 3: PAGINATION, FILTERING, SORTING & REDIS CACHING
+###############################################################################
+
+### 15. Get Jobs with Pagination, Filtering & Sorting (Default page 1, size 10)
+GET {{HostAddress}}/api/jobs?page=1&pageSize=10&activeOnly=true&search=Developer&sortBy=createdAt&sortDirection=desc
+Accept: application/json
+
+### 16. Get Jobs (Page 2, size 1, sorted ascending) - Cached in Redis
+GET {{HostAddress}}/api/jobs?page=2&pageSize=1&sortBy=createdAt&sortDirection=asc
+Accept: application/json
+
+### 17. Rate Limiting Test (Send >10 requests rapidly to /api/auth/login to trigger 429)
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@trackapplication.com",
+  "password": "Admin@123456"
+}
+

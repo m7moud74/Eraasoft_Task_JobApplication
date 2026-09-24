@@ -89,7 +89,7 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpGet("job/{jobId:int}")]
-    [Authorize(Roles = "Recruiter,Admin")]
+    [Authorize(Roles = "Recruiter,Company,Admin")]
     public async Task<IActionResult> GetJobApplications(int jobId, CancellationToken cancellationToken)
     {
         try
@@ -108,7 +108,7 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpPut("{id:int}/status")]
-    [Authorize(Roles = "Recruiter,Admin")]
+    [Authorize(Roles = "Recruiter,Company,Admin")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateApplicationStatusRequest request, CancellationToken cancellationToken)
     {
         try

@@ -14,15 +14,18 @@ public class ApplyJobCommandHandler : IRequestHandler<ApplyJobCommand, JobCandid
     private readonly IJobCandidateApplicationRepository _repository;
     private readonly IJobRepository _jobRepository;
     private readonly ICandidateRepository _candidateRepository;
+    private readonly IAuditService _auditService;
 
     public ApplyJobCommandHandler(
         IJobCandidateApplicationRepository repository,
         IJobRepository jobRepository,
-        ICandidateRepository candidateRepository)
+        ICandidateRepository candidateRepository,
+        IAuditService auditService)
     {
         _repository = repository;
         _jobRepository = jobRepository;
         _candidateRepository = candidateRepository;
+        _auditService = auditService;
     }
 
     public async Task<JobCandidateApplicationDto> Handle(ApplyJobCommand request, CancellationToken cancellationToken)
@@ -61,6 +64,9 @@ public class ApplyJobCommandHandler : IRequestHandler<ApplyJobCommand, JobCandid
 
         await _repository.InsertAsync(application, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        // Record audit log
+        await _auditService.LogAsync("Application submitted", "JobCandidateApplication", application.Id.ToString(), $"Candidate {candidate.Id} applied to Job {job.Id} ('{job.Title}').", cancellationToken);
 
         return new JobCandidateApplicationDto
         {

@@ -1,10 +1,12 @@
 using System.Text;
+using JobApplication.Api.Middlewares;
 using JobApplication.Api.Services;
 using JobApplication.Application;
 using JobApplication.Application.Interfaces;
 using JobApplication.Infrastructure;
 using JobApplication.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -15,6 +17,22 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+// Global Exception Handling & RFC 7807 ProblemDetails
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
+// Rate Limiting for sensitive endpoints (Login & Registration)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("AuthPolicy", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 10;
+        opt.QueueLimit = 0;
+    });
+});
 
 // MediatR & Application Services
 builder.Services.AddApplicationServices();
@@ -101,6 +119,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // 5. Middleware Pipeline
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -111,6 +131,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
