@@ -5,7 +5,7 @@ using MediatR;
 
 namespace JobApplication.Application.Feature.Command.Candidates;
 
-public record UpdateCandidateCommand(int Id, string Name, string? CvUrl) : IRequest<CandidateDto>;
+public record UpdateCandidateCommand(int Id, string Name, string? CvUrl = null) : IRequest<CandidateDto>;
 
 public class UpdateCandidateCommandHandler : IRequestHandler<UpdateCandidateCommand, CandidateDto>
 {
@@ -39,7 +39,7 @@ public class UpdateCandidateCommandHandler : IRequestHandler<UpdateCandidateComm
         }
 
         candidate.Name = request.Name.Trim();
-        candidate.CvUrl = request.CvUrl?.Trim() ?? string.Empty;
+        // CV URL can no longer be updated via arbitrary string; it must be uploaded via the CV upload endpoint
 
         _candidateRepository.Update(candidate);
         await _candidateRepository.SaveChangesAsync(cancellationToken);
@@ -49,7 +49,8 @@ public class UpdateCandidateCommandHandler : IRequestHandler<UpdateCandidateComm
             Id = candidate.Id,
             Name = candidate.Name,
             Email = candidate.Email,
-            CvUrl = candidate.CvUrl
+            CvUrl = candidate.CvUrl,
+            CvPublicId = candidate.CvPublicId
         };
     }
 }

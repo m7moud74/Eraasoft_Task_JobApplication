@@ -1,9 +1,11 @@
+using System.IO;
 using JobApplication.Application.DTOs;
 using JobApplication.Application.Exceptions;
 using JobApplication.Application.Feature.Command.Candidates;
 using JobApplication.Application.Feature.Query.Candidates;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JobApplication.Api.Controllers;
@@ -66,6 +68,58 @@ public class CandidatesController : ControllerBase
         catch (BadRequestException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:int}/cv")]
+    [Authorize(Roles = "Candidate")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadCv(int id, IFormFile file, CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { error = "A valid file must be provided." });
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var candidate = await _mediator.Send(
+                new UploadCandidateCvCommand(id, stream, file.FileName, file.ContentType, file.Length),
+                cancellationToken);
+
+            return Ok(candidate);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+        }
+        catch (BadRequestException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:int}/cv")]
+    [Authorize(Roles = "Candidate")]
+    public async Task<IActionResult> DeleteCv(int id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var candidate = await _mediator.Send(new DeleteCandidateCvCommand(id), cancellationToken);
+            return Ok(candidate);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (ForbiddenAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
         }
     }
 

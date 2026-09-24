@@ -9,13 +9,16 @@ public record DeleteCandidateCommand(int Id) : IRequest<bool>;
 public class DeleteCandidateCommandHandler : IRequestHandler<DeleteCandidateCommand, bool>
 {
     private readonly ICandidateRepository _candidateRepository;
+    private readonly IFileStorageService _fileStorageService;
     private readonly ICurrentUserService _currentUserService;
 
     public DeleteCandidateCommandHandler(
         ICandidateRepository candidateRepository,
+        IFileStorageService fileStorageService,
         ICurrentUserService currentUserService)
     {
         _candidateRepository = candidateRepository;
+        _fileStorageService = fileStorageService;
         _currentUserService = currentUserService;
     }
 
@@ -30,6 +33,11 @@ public class DeleteCandidateCommandHandler : IRequestHandler<DeleteCandidateComm
         if (candidate is null)
         {
             throw new NotFoundException($"Candidate with ID {request.Id} was not found.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(candidate.CvPublicId))
+        {
+            await _fileStorageService.DeleteFileAsync(candidate.CvPublicId, cancellationToken);
         }
 
         _candidateRepository.Remove(candidate);
