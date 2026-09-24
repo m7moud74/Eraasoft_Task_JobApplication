@@ -1,7 +1,6 @@
 using JobApplication.Application.DTOs;
 using JobApplication.Application.Exceptions;
 using JobApplication.Application.Interfaces;
-using JobApplication.Domain.Entities;
 using MediatR;
 
 namespace JobApplication.Application.Feature.Query.Applications;
@@ -29,11 +28,15 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
             throw new NotFoundException($"Job application with ID {request.ApplicationId} was not found.");
         }
 
-        var isJobOwner = application.Job is not null &&
-                         !string.IsNullOrWhiteSpace(application.Job.CreatedByUserId) &&
-                         application.Job.CreatedByUserId == _currentUserService.UserId;
+        var isJobOwnerCompany = application.Job is not null &&
+                                _currentUserService.CompanyId.HasValue &&
+                                application.Job.CompanyId == _currentUserService.CompanyId.Value;
 
-        if (!request.IsAdmin && !isJobOwner && application.CandidateId != request.CurrentCandidateId)
+        var isJobCreator = application.Job is not null &&
+                           !string.IsNullOrWhiteSpace(application.Job.CreatedByUserId) &&
+                           application.Job.CreatedByUserId == _currentUserService.UserId;
+
+        if (!request.IsAdmin && !isJobCreator && !isJobOwnerCompany && application.CandidateId != request.CurrentCandidateId)
         {
             throw new ForbiddenAccessException("You are not authorized to view this job application.");
         }

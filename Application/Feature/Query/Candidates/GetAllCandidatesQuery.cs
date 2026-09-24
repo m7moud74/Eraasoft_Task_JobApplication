@@ -23,7 +23,8 @@ public class GetAllCandidatesQueryHandler : IRequestHandler<GetAllCandidatesQuer
             Id = candidate.Id,
             Name = candidate.Name,
             Email = candidate.Email,
-            CvUrl = candidate.CvUrl
+            CvUrl = candidate.CvUrl,
+            CvPublicId = candidate.CvPublicId
         }).ToList();
     }
 }

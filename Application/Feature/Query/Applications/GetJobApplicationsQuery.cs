@@ -31,11 +31,20 @@ public class GetJobApplicationsQueryHandler : IRequestHandler<GetJobApplications
             throw new NotFoundException($"Job with ID {request.JobId} was not found.");
         }
 
-        if (!_currentUserService.IsAdmin &&
-            !string.IsNullOrWhiteSpace(job.CreatedByUserId) &&
-            job.CreatedByUserId != _currentUserService.UserId)
+        if (!_currentUserService.IsAdmin)
         {
-            throw new ForbiddenAccessException("Only the recruiter who opened this job or an administrator can view its applications.");
+            var userCompanyId = _currentUserService.CompanyId;
+            if (!userCompanyId.HasValue || userCompanyId.Value != job.CompanyId)
+            {
+                throw new ForbiddenAccessException("A recruiter cannot view applications for a job belonging to another company.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(job.CreatedByUserId) &&
+                job.CreatedByUserId != _currentUserService.UserId &&
+                !_currentUserService.IsCompanyOwner)
+            {
+                throw new ForbiddenAccessException("Only the recruiter who opened this job or an administrator can view its applications.");
+            }
         }
 
         var applications = await _repository.GetByJobIdAsync(request.JobId, cancellationToken);

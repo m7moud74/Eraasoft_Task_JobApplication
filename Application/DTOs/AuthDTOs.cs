@@ -22,4 +22,6 @@ public class AuthResponse
     public string Name { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public int? CandidateId { get; set; }
+    public int? CompanyId { get; set; }
+    public int? RecruiterId { get; set; }
 }

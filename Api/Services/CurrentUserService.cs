@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using JobApplication.Application.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace JobApplication.Api.Services;
 
@@ -34,6 +35,38 @@ public class CurrentUserService : ICurrentUserService
         }
     }
 
+    public int? CompanyId
+    {
+        get
+        {
+            var claim = User?.FindFirst("company_id")?.Value
+                ?? User?.FindFirst("CompanyId")?.Value;
+
+            if (int.TryParse(claim, out var companyId))
+            {
+                return companyId;
+            }
+
+            return null;
+        }
+    }
+
+    public int? RecruiterId
+    {
+        get
+        {
+            var claim = User?.FindFirst("recruiter_id")?.Value
+                ?? User?.FindFirst("RecruiterId")?.Value;
+
+            if (int.TryParse(claim, out var recruiterId))
+            {
+                return recruiterId;
+            }
+
+            return null;
+        }
+    }
+
     public string? Email =>
         User?.FindFirst(ClaimTypes.Email)?.Value
         ?? User?.FindFirst("email")?.Value;
@@ -45,4 +78,22 @@ public class CurrentUserService : ICurrentUserService
     public bool IsCandidate => User?.IsInRole("Candidate") ?? false;
 
     public bool IsRecruiter => User?.IsInRole("Recruiter") ?? false;
+
+    public bool IsCompany => User?.IsInRole("Company") ?? false;
+
+    public bool IsCompanyOwner
+    {
+        get
+        {
+            var claim = User?.FindFirst("is_company_owner")?.Value
+                ?? User?.FindFirst("IsCompanyOwner")?.Value;
+
+            if (bool.TryParse(claim, out var isOwner))
+            {
+                return isOwner;
+            }
+
+            return IsCompany;
+        }
+    }
 }

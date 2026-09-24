@@ -30,7 +30,11 @@ public class GetJobByIdQueryHandler : IRequestHandler<GetJobByIdQuery, JobDto>
             Title = job.Title,
             Description = job.Description,
             IsActive = job.IsActive,
-            CreatedByUserId = job.CreatedByUserId
+            CreatedByUserId = job.CreatedByUserId,
+            CompanyId = job.CompanyId,
+            CompanyName = job.Company?.Name,
+            RecruiterId = job.RecruiterId,
+            RecruiterName = job.Recruiter?.Name
         };
     }
 }
